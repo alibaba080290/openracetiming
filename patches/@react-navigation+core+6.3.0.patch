@@ -1,0 +1,10 @@
+diff --git a/node_modules/@react-navigation/core/src/useRegisterNavigator.tsx b/node_modules/@react-navigation/core/src/useRegisterNavigator.tsx
+index 0f159d0..af8670e 100644
+--- a/node_modules/@react-navigation/core/src/useRegisterNavigator.tsx
++++ b/node_modules/@react-navigation/core/src/useRegisterNavigator.tsx
+@@ -1,4 +1,4 @@
+-import { nanoid } from 'nanoid/non-secure';
++import nanoid from 'nanoid/non-secure';
+ import * as React from 'react';
+ 
+ import { SingleNavigatorContext } from './EnsureSingleNavigator';
