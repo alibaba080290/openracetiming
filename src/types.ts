@@ -1,19 +1,27 @@
-// src/types.ts
-export type RaceType = 'endurance' | 'classique';
+export type RaceType = 'endurance' | 'classic';
+
+export interface Driver {
+  id: string;
+  name: string;
+  kartNumber: number;
+  team?: string;
+}
+
+export interface LapEvent {
+  id: string;
+  time: number; // Date.now()
+  kartNumber?: number; // optionnel, quand on branchera la vision
+}
 
 export interface Race {
   id: string;
   name: string;
   type: RaceType;
-  laps?: number; // si type === 'classique'
-  duration?: number; // minutes si type === 'endurance'
+  laps?: number; // classic
+  duration?: number; // endurance (minutes)
   start: Date;
-}
 
-export interface Driver {
-  id: string; // UUID ou timestamp
-  name: string;
-  kartNumber: number; // n° de kart
-  team?: string;
-  helmetColor?: string;
+  /** N O U V E A U S */
+  drivers: Driver[];
+  lapEvents: LapEvent[];
 }

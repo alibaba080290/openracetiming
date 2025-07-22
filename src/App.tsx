@@ -1,147 +1,111 @@
-/**
-
- */
-
-import Settings from './components/Settings';
-import Timing from './components/Timing';
-import Results from './components/Results';
-import Registration from './components/Registration';
-
-import * as React from 'react';
-import { View, Image } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { SafeAreaView } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import uuid from 'react-native-uuid';
 
-//eslint-disable-next-line
-function RegistrationScreen() {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Registration />
-    </View>
-  );
-}
-
-//eslint-disable-next-line
-function TimingScreen() {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Timing />
-    </View>
-  );
-}
-
-//eslint-disable-next-line
-function ResultsScreen() {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Results />
-    </View>
-  );
-}
-
-//eslint-disable-next-line
-function SettingsScreen() {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Settings />
-    </View>
-  );
-}
-
-function LogoTitle() {
-  return (
-    <Image
-      style={{ width: 200, height: 80 }}
-      source={require('./ORT_Header.png')}
-    />
-  );
-}
+import Settings from './components/Settings';
+import Registration from './components/Registration';
+import Timing from './components/Timing';
+import Results from './components/Results';
+import { Race, Driver, LapEvent } from './types';
 
 const Tab = createBottomTabNavigator();
 
-const App = () => {
-  //     BleManager.start({ showAlert: false }).then(() => {
-  //       // Success code
-  //       console.log("Module initialized");
-  //     });
+export default function App() {
+  const [races, setRaces] = useState<Race[]>([]);
+  const [selectedRaceId, setSelectedRaceId] = useState<string>();
+
+  // helpers ────────────────────────────────────────────────────────
+  const selectedRace = races.find((r) => r.id === selectedRaceId);
+
+  const addRace = (race: Omit<Race, 'drivers' | 'lapEvents'>) =>
+    setRaces((prev) => [...prev, { ...race, drivers: [], lapEvents: [] }]);
+
+  const selectRace = (r: Race) => setSelectedRaceId(r.id);
+
+  const updateRace = useCallback(
+    (id: string, mutator: (r: Race) => Race) =>
+      setRaces((prev) => prev.map((r) => (r.id === id ? mutator(r) : r))),
+    []
+  );
+
+  // pilotes ---------------------------------------------------------
+  const addDriver = (driver: Driver) => {
+    if (!selectedRace) {
+      return;
+    }
+    updateRace(selectedRace.id, (r) => ({
+      ...r,
+      drivers: [...r.drivers, driver],
+    }));
+  };
+
+  const removeDriver = (driverId: string) => {
+    if (!selectedRace) {
+      return;
+    }
+    updateRace(selectedRace.id, (r) => ({
+      ...r,
+      drivers: r.drivers.filter((d) => d.id !== driverId),
+    }));
+  };
+
+  // tours / passages ------------------------------------------------
+  const addLapEvent = (kartNumber?: number) => {
+    if (!selectedRace) {
+      return;
+    }
+    const event: LapEvent = {
+      id: uuid.v4().toString(),
+      time: Date.now(),
+      kartNumber,
+    };
+    updateRace(selectedRace.id, (r) => ({
+      ...r,
+      lapEvents: [...r.lapEvents, event],
+    }));
+  };
+
+  // rendu ──────────────────────────────────────────────────────────
   return (
-    <>
+    <SafeAreaView style={{ flex: 1 }}>
       <NavigationContainer>
-        <Tab.Navigator>
-          <Tab.Screen
-            name="Settings"
-            component={Settings}
-            options={{
-              headerStyle: { height: 80 },
-              headerTitle: (props) => <LogoTitle {...props} />,
-              //                       headerRight: () => (
-              //                         <Button
-              //                           onPress={() => setShowSettingsModal(true)}
-              //                           title="Info"
-              //                           color="#fff"
-              //                         />
-              //                       ),
-            }}
-          />
-          <Tab.Screen
-            name="Registration"
-            component={Registration}
-            options={{
-              headerStyle: { height: 80 },
-              headerTitle: (props) => <LogoTitle {...props} />,
-              //               headerRight: () => (
-              //                 <Button
-              //                   onPress={() => setShowSettingsModal(true)}
-              //                   title="Info"
-              //                   color="#fff"
-              //                 />
-              //               ),
-            }}
-          />
-          <Tab.Screen
-            name="Timing"
-            component={Timing}
-            options={{
-              headerStyle: { height: 80 },
-              headerTitle: (props) => <LogoTitle {...props} />,
-              //               headerRight: () => (
-              //                 <Button
-              //                   onPress={() => setShowSettingsModal(true)}
-              //                   title="Info"
-              //                   color="#fff"
-              //                 />
-              //               ),
-            }}
-          />
-          <Tab.Screen
-            name="Results"
-            component={Results}
-            options={{
-              headerStyle: { height: 80 },
-              headerTitle: (props) => <LogoTitle {...props} />,
-              //               headerRight: () => (
-              //                 <Button
-              //                   onPress={() => setShowSettingsModal(true)}
-              //                   title="Info"
-              //                   color="#fff"
-              //                 />
-              //               ),
-            }}
-          />
+        <Tab.Navigator screenOptions={{ headerShown: false }}>
+          <Tab.Screen name="Settings">
+            {() => (
+              <Settings
+                races={races}
+                addRace={addRace}
+                selectedRace={selectedRace}
+                onSelectRace={selectRace}
+              />
+            )}
+          </Tab.Screen>
+
+          <Tab.Screen name="Registration">
+            {() =>
+              selectedRace ? (
+                <Registration
+                  race={selectedRace}
+                  addDriver={addDriver}
+                  removeDriver={removeDriver}
+                />
+              ) : null
+            }
+          </Tab.Screen>
+
+          <Tab.Screen name="Timing">
+            {() =>
+              selectedRace ? (
+                <Timing race={selectedRace} onLap={addLapEvent} />
+              ) : null
+            }
+          </Tab.Screen>
+
+          <Tab.Screen name="Results" component={Results} />
         </Tab.Navigator>
       </NavigationContainer>
-      {/*       <Modal */}
-      {/*         animationType="slide" */}
-      {/*         transparent={false} */}
-      {/*         visible={showSettingsModal} */}
-      {/*         onRequestClose={() => { */}
-      {/*           setShowSettingsModal(!showSettingsModal); */}
-      {/*         }} */}
-      {/*       > */}
-      {/*         <Settings /> */}
-      {/*       </Modal> */}
-    </>
+    </SafeAreaView>
   );
-};
-
-export default App;
+}
