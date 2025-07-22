@@ -1,89 +1,113 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, TextInput, Button, FlatList, StyleSheet } from 'react-native';
 import { List, IconButton } from 'react-native-paper';
 import uuid from 'react-native-uuid';
-import { Race, Driver } from '../types';
 
-interface Props {
-  race: Race;
-  addDriver: (d: Driver) => void;
-  removeDriver: (driverId: string) => void;
-}
+import { useRace } from '../contexts/RaceContext';
+import { Driver } from '../types';
 
-const Registration: React.FC<Props> = ({ race, addDriver, removeDriver }) => {
+export default function Registration() {
+  const { selectedRace, updateDrivers } = useRace();
+
   const [name, setName] = useState('');
-  const [kartNumber, setKart] = useState('');
+  const [kart, setKart] = useState('');
+  const [team, setTeam] = useState('');
+  const [drivers, setDrivers] = useState<Driver[]>([]);
 
-  const handleAdd = () => {
-    if (!name.trim() || !kartNumber) {
+  /* sync local state when course changes */
+  useEffect(() => setDrivers(selectedRace?.drivers ?? []), [selectedRace]);
+
+  if (!selectedRace) {
+    return (
+      <List.Section>
+        <List.Item title="Aucune course sélectionnée" />
+      </List.Section>
+    );
+  }
+
+  function add() {
+    if (!name || !kart) {
       return;
     }
-    addDriver({
+    const d: Driver = {
       id: uuid.v4().toString(),
-      name: name.trim(),
-      kartNumber: Number(kartNumber),
-    });
+      name,
+      kartNumber: +kart,
+      team,
+    };
+    const next = [...drivers, d];
+    setDrivers(next);
+    updateDrivers(selectedRace.id, next);
     setName('');
     setKart('');
-  };
+    setTeam('');
+  }
 
-  const renderItem = ({ item }: { item: Driver }) => (
-    <List.Item
-      title={`${item.kartNumber} – ${item.name}`}
-      right={() => (
-        <IconButton
-          icon="delete"
-          onPress={() => removeDriver(item.id)}
-          size={20}
-        />
-      )}
-    />
-  );
+  function remove(id: string) {
+    const next = drivers.filter((d) => d.id !== id);
+    setDrivers(next);
+    updateDrivers(selectedRace.id, next);
+  }
 
   return (
     <View style={styles.container}>
-      {/* Formulaire d’ajout */}
-      <View style={styles.row}>
+      <View style={styles.formRow}>
         <TextInput
-          placeholder="Nom pilote"
           style={styles.input}
+          placeholder="Nom"
           value={name}
           onChangeText={setName}
         />
         <TextInput
-          placeholder="Kart #"
-          style={[styles.input, { maxWidth: 80 }]}
-          value={kartNumber}
-          keyboardType="number-pad"
+          style={styles.inputS}
+          placeholder="Kart#"
+          value={kart}
           onChangeText={setKart}
+          keyboardType="numeric"
         />
-        <Button title="Ajouter" onPress={handleAdd} />
+        <TextInput
+          style={styles.input}
+          placeholder="Équipe"
+          value={team}
+          onChangeText={setTeam}
+        />
+        <Button title="Ajouter" onPress={add} />
       </View>
 
-      {/* Liste pilotes */}
       <FlatList
-        data={race.drivers}
+        data={drivers}
         keyExtractor={(d) => d.id}
-        renderItem={renderItem}
-        ListEmptyComponent={
-          <List.Item title="Aucun pilote enregistré." disabled />
-        }
+        renderItem={({ item }) => (
+          <List.Item
+            title={`${item.kartNumber} – ${item.name}`}
+            description={item.team ?? '—'}
+            right={() => (
+              <IconButton icon="close" onPress={() => remove(item.id)} />
+            )}
+          />
+        )}
+        ListEmptyComponent={<List.Item title="Aucun pilote" />}
       />
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
-  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  formRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   input: {
+    flex: 2,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    marginRight: 8,
+    padding: 4,
+  },
+  inputS: {
     flex: 1,
     borderWidth: 1,
     borderColor: '#ccc',
-    padding: 8,
     marginRight: 8,
-    borderRadius: 4,
+    padding: 4,
+    textAlign: 'center',
   },
 });
-
-export default Registration;

@@ -1,27 +1,22 @@
+// ─────────────────────────────────────────────
+// Definition globale des types domaine
+// ─────────────────────────────────────────────
 export type RaceType = 'endurance' | 'classic';
 
 export interface Driver {
-  id: string;
+  id: string; // uuid
   name: string;
   kartNumber: number;
   team?: string;
-}
-
-export interface LapEvent {
-  id: string;
-  time: number; // Date.now()
-  kartNumber?: number; // optionnel, quand on branchera la vision
+  helmetColor?: string;
 }
 
 export interface Race {
-  id: string;
+  id: string; // uuid
   name: string;
   type: RaceType;
-  laps?: number; // classic
-  duration?: number; // endurance (minutes)
+  laps?: number; // si classic
+  duration?: number; // min si endurance
   start: Date;
-
-  /** N O U V E A U S */
-  drivers: Driver[];
-  lapEvents: LapEvent[];
+  drivers?: Driver[]; // rattachement des pilotes
 }
