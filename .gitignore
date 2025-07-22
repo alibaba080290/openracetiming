@@ -71,3 +71,4 @@ buck-out/
 coverage/
 
 android/app/openracetiming.keystore
+.expo/
