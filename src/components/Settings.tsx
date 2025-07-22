@@ -1,64 +1,75 @@
+/* eslint-disable react-native/no-inline-styles */
 import React, { useState } from 'react';
-import { ScrollView, Button, StyleSheet, TouchableOpacity } from 'react-native';
-import { DataTable } from 'react-native-paper';
+import { ScrollView } from 'react-native';
+import { DataTable, Button, IconButton } from 'react-native-paper';
+import uuid from 'react-native-uuid';
 
 import NewRaceForm from './NewRaceForm';
 import { useRace } from '../contexts/RaceContext';
 import { Race } from '../types';
 
 export default function Settings() {
-  const { races, addRace, selectedRace, setSelectedRace } = useRace();
+  const { races, addRace, selectRace, selectedRace } = useRace();
   const [adding, setAdding] = useState(false);
 
-  function handleSave(r: Omit<Race, 'id' | 'drivers'>) {
-    addRace(r);
+  /* ---------- helpers -------------------------------------------------- */
+  const handleSave = (partial: Omit<Race, 'id'>) => {
+    addRace({ id: uuid.v4().toString(), ...partial });
     setAdding(false);
-  }
+  };
 
+  /* ---------- rendu ---------------------------------------------------- */
   return (
-    <ScrollView contentContainerStyle={styles.page}>
-      {adding ? (
-        <NewRaceForm onCancel={() => setAdding(false)} onSave={handleSave} />
-      ) : (
-        <Button title="Nouvelle course" onPress={() => setAdding(true)} />
+    <ScrollView contentContainerStyle={{ padding: 16 }}>
+      {!adding && (
+        <Button mode="contained" onPress={() => setAdding(true)}>
+          Nouvelle course
+        </Button>
+      )}
+
+      {adding && (
+        <NewRaceForm onSave={handleSave} onCancel={() => setAdding(false)} />
       )}
 
       <DataTable style={{ marginTop: 16 }}>
         <DataTable.Header>
-          <DataTable.Title style={styles.cell2}>Course</DataTable.Title>
-          <DataTable.Title style={styles.cell1}>Type</DataTable.Title>
-          <DataTable.Title style={styles.cell12}>Durée / Tours</DataTable.Title>
-          <DataTable.Title style={styles.cell18}>Date</DataTable.Title>
+          <DataTable.Title style={{ flex: 2 }}>Course</DataTable.Title>
+          <DataTable.Title style={{ flex: 1 }}>Type</DataTable.Title>
+          <DataTable.Title style={{ flex: 1 }} numeric>
+            Durée/Tours
+          </DataTable.Title>
+          <DataTable.Title style={{ flex: 1.2 }}>Date</DataTable.Title>
+          <DataTable.Title style={{ flex: 0.4 }} />
         </DataTable.Header>
 
-        {races.map((r) => (
-          <TouchableOpacity key={r.id} onPress={() => setSelectedRace(r)}>
+        {races.map((r) => {
+          const isSel = r.id === selectedRace?.id;
+          return (
             <DataTable.Row
-              style={r.id === selectedRace?.id ? styles.selected : undefined}
+              key={r.id}
+              style={{ backgroundColor: isSel ? '#eef' : undefined }}
             >
-              <DataTable.Cell style={styles.cell2}>{r.name}</DataTable.Cell>
-              <DataTable.Cell style={styles.cell1}>
+              <DataTable.Cell style={{ flex: 2 }}>{r.name}</DataTable.Cell>
+              <DataTable.Cell style={{ flex: 1 }}>
                 {r.type === 'classic' ? 'Classique' : 'Endurance'}
               </DataTable.Cell>
-              <DataTable.Cell style={styles.cell12}>
+              <DataTable.Cell style={{ flex: 1 }} numeric>
                 {r.type === 'classic' ? `${r.laps} tours` : `${r.duration} min`}
               </DataTable.Cell>
-              <DataTable.Cell style={styles.cell18}>
+              <DataTable.Cell style={{ flex: 1.2 }}>
                 {r.start.toLocaleString()}
               </DataTable.Cell>
+              <DataTable.Cell style={{ flex: 0.4 }}>
+                <IconButton
+                  icon="check"
+                  size={18}
+                  onPress={() => selectRace(r.id)}
+                />
+              </DataTable.Cell>
             </DataTable.Row>
-          </TouchableOpacity>
-        ))}
+          );
+        })}
       </DataTable>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  page: { padding: 16 },
-  cell1: { flex: 1 },
-  cell12: { flex: 1.2 },
-  cell18: { flex: 1.8 },
-  cell2: { flex: 2 },
-  selected: { backgroundColor: '#e0f7fa' },
-});

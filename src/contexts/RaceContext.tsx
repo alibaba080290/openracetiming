@@ -1,128 +1,74 @@
-// src/contexts/RaceContext.tsx
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Race, Driver, Lap } from '../types';
+import { Driver, Race } from '../types';
 
-interface RaceContextType {
+/* ---- types du contexte -------------------------------------------------- */
+
+interface RaceContextShape {
+  /* courses */
   races: Race[];
-  setRaces: (races: Race[]) => void;
-  selectedRaceId: string | null;
-  setSelectedRaceId: (id: string | null) => void;
   addRace: (race: Race) => void;
-  updateRace: (race: Race) => void;
-  deleteRace: (id: string) => void;
+
+  /* sélection */
+  selectedRace: Race | null;
+  selectRace: (id: string) => void;
+
+  /* pilotes reliés à la course sélectionnée */
   drivers: Driver[];
-  addDriver: (driver: Driver) => void;
-  removeDriver: (driverId: string) => void;
-  laps: Lap[];
-  addLap: (lap: Lap) => void;
-  clearLaps: () => void;
+  updateDrivers: (fn: (prev: Driver[]) => Driver[]) => void;
 }
 
-const RaceContext = createContext<RaceContextType | undefined>(undefined);
+/* ---- implémentation ----------------------------------------------------- */
 
-export function useRaceContext() {
-  const ctx = useContext(RaceContext);
-  if (!ctx) {
-    throw new Error('useRaceContext must be used inside RaceProvider');
-  }
-  return ctx;
-}
+const RaceContext = createContext<RaceContextShape | undefined>(undefined);
 
 export const RaceProvider = ({ children }: { children: ReactNode }) => {
   const [races, setRaces] = useState<Race[]>([]);
-  const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null);
-
-  // pilotes liés à la course sélectionnée
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [driversByRace, setDriversByRace] = useState<Record<string, Driver[]>>(
     {}
   );
-  // tours au format { raceId, driverId, time, lapNumber }
-  const [laps, setLaps] = useState<Lap[]>([]);
 
-  // Helpers pour la course sélectionnée
-  const drivers = selectedRaceId ? driversByRace[selectedRaceId] ?? [] : [];
+  /* --- courses ---------------------------------------------------------- */
+  const addRace = (race: Race) => setRaces((prev) => [...prev, race]);
 
-  const addRace = (race: Race) => {
-    setRaces((prev) => [...prev, race]);
-    setDriversByRace((prev) => ({ ...prev, [race.id]: [] }));
-  };
+  /* --- sélection -------------------------------------------------------- */
+  const selectRace = (id: string) => setSelectedId(id);
+  const selectedRace = races.find((r) => r.id === selectedId) ?? null;
 
-  const updateRace = (race: Race) => {
-    setRaces((prev) => prev.map((r) => (r.id === race.id ? race : r)));
-  };
+  /* --- pilotes ---------------------------------------------------------- */
+  const drivers = selectedId ? driversByRace[selectedId] ?? [] : [];
 
-  const deleteRace = (id: string) => {
-    setRaces((prev) => prev.filter((r) => r.id !== id));
-    setDriversByRace((prev) => {
-      const copy = { ...prev };
-      delete copy[id];
-      return copy;
-    });
-    setLaps((prev) => prev.filter((lap) => lap.raceId !== id));
-    if (selectedRaceId === id) {
-      setSelectedRaceId(null);
-    }
-  };
-
-  const addDriver = (driver: Driver) => {
-    if (!selectedRaceId) {
+  const updateDrivers = (fn: (prev: Driver[]) => Driver[]) => {
+    if (!selectedId) {
       return;
-    }
-    setDriversByRace((prev) => {
-      const current = prev[selectedRaceId] ?? [];
-      // Empêcher les doublons de numéro de kart
-      if (current.find((d) => d.kartNumber === driver.kartNumber)) {
-        return prev;
-      }
-      return { ...prev, [selectedRaceId]: [...current, driver] };
-    });
-  };
-
-  const removeDriver = (driverId: string) => {
-    if (!selectedRaceId) {
-      return;
-    }
-    setDriversByRace((prev) => {
-      const current = prev[selectedRaceId] ?? [];
-      return {
-        ...prev,
-        [selectedRaceId]: current.filter((d) => d.id !== driverId),
-      };
-    });
-    setLaps((prev) => prev.filter((lap) => lap.driverId !== driverId));
-  };
-
-  // Ajout d’un tour (laptime)
-  const addLap = (lap: Lap) => {
-    setLaps((prev) => [...prev, lap]);
-  };
-
-  const clearLaps = () => {
-    if (!selectedRaceId) {
-      return;
-    }
-    setLaps((prev) => prev.filter((lap) => lap.raceId !== selectedRaceId));
+    } // rien si aucune course sélectionnée
+    setDriversByRace((prev) => ({
+      ...prev,
+      [selectedId]: fn(prev[selectedId] ?? []),
+    }));
   };
 
   return (
     <RaceContext.Provider
       value={{
         races,
-        setRaces,
-        selectedRaceId,
-        setSelectedRaceId,
         addRace,
-        updateRace,
-        deleteRace,
+        selectedRace,
+        selectRace,
         drivers,
-        addDriver,
-        removeDriver,
-        laps: laps.filter((lap) => lap.raceId === selectedRaceId),
-        addLap,
-        clearLaps,
+        updateDrivers,
       }}
     >
       {children}
     </RaceContext.Provider>
   );
+};
+
+/* ---- hook pratique ------------------------------------------------------ */
+export const useRace = () => {
+  const ctx = useContext(RaceContext);
+  if (!ctx) {
+    throw new Error('useRace must be used inside <RaceProvider>');
+  }
+  return ctx;
 };

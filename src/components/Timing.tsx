@@ -1,114 +1,93 @@
-import React, { useState, useRef } from 'react';
+/* eslint-disable react-native/no-inline-styles */
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { Button } from 'react-native-paper';
-import { Race } from '../types';
-import { fmt } from '../utils/time';
 
-/* -------------------------------- types ------------------------------- */
-interface LapEvent {
-  ms: number; // temps absolu depuis t0 (ms)
-  driverId?: string; // futur : associer au pilote
+import { useRace } from '../contexts/RaceContext';
+
+interface Lap {
+  ts: number; // horodate en ms
+  kart?: number;
 }
 
-interface Props {
-  selectedRace?: Race; // injecté par le contexte RaceContext
-}
+/* util fond : format mm:ss.cc */
+const fmt = (ms: number) => {
+  const m = Math.floor(ms / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  const c = Math.floor((ms % 1000) / 10);
+  return `${m}:${s.toString().padStart(2, '0')}.${c
+    .toString()
+    .padStart(2, '0')}`;
+};
 
-/* ------------------------------- helper ------------------------------- */
-const now = () => Date.now();
+export default function Timing() {
+  const { selectedRace } = useRace();
+  const [laps, setLaps] = useState<Lap[]>([]);
+  const [start, setStart] = useState<number | null>(null);
 
-/* --------------------------------- UI --------------------------------- */
-const Timing: React.FC<Props> = ({ selectedRace }) => {
-  const [laps, setLaps] = useState<LapEvent[]>([]);
-  const [started, setStarted] = useState(false);
-
-  // référence sur l’horodatage du départ
-  const t0 = useRef<number | null>(null);
-
-  /* -------- callbacks -------- */
-  function startRace() {
-    t0.current = now();
-    setLaps([]);
-    setStarted(true);
-  }
-
-  function registerLap() {
-    if (!started || t0.current == null) {
-      return;
-    }
-    setLaps((prev) => [...prev, { ms: now() - t0.current! }]);
-  }
-
-  /* -------- rendering helpers -------- */
-  const renderLap = ({ item, index }: { item: LapEvent; index: number }) => (
-    <View style={styles.lapItem}>
-      <Text>
-        Tour {index + 1} – {fmt(item.ms)}
-      </Text>
-    </View>
-  );
-
-  /* -------- no race selected -------- */
   if (!selectedRace) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.warning}>Aucune course sélectionnée.</Text>
+      <View style={styles.center}>
+        <Text style={{ color: 'red' }}>Aucune course sélectionnée.</Text>
       </View>
     );
   }
 
-  /* ----------------------------- render ----------------------------- */
+  /* --- handlers -------------------------------------------------------- */
+  const begin = () => {
+    // compte à rebours 10 s puis top départ
+    setTimeout(() => setStart(Date.now()), 10_000);
+  };
+
+  const addLap = () => {
+    if (!start) {
+      return;
+    }
+    setLaps((prev) => [...prev, { ts: Date.now() }]);
+  };
+
+  /* --- rendu ----------------------------------------------------------- */
+  const raceClock = start === null ? '--:--.--' : fmt(Date.now() - start);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.raceTitle}>
-        {selectedRace.name} —{' '}
-        {selectedRace.type === 'endurance'
-          ? `${selectedRace.duration} min`
-          : `${selectedRace.laps} tours`}
-      </Text>
+      <Text style={styles.h1}>{selectedRace.name}</Text>
+      <Text style={styles.h2}>Horloge : {raceClock}</Text>
 
-      {started && t0.current && (
-        <Text style={styles.globalTime}>
-          Temps écoulé : {fmt(now() - t0.current)}
-        </Text>
-      )}
+      <Button mode="contained" onPress={begin} disabled={start !== null}>
+        DÉMARRER (10 s)
+      </Button>
 
-      {!started ? (
-        <Button mode="contained" onPress={startRace} style={styles.btn}>
-          Démarrer la course
-        </Button>
-      ) : (
-        <Button mode="contained" onPress={registerLap} style={styles.btn}>
-          Enregistrer un passage
-        </Button>
-      )}
+      <Button
+        mode="contained"
+        onPress={addLap}
+        disabled={!start}
+        style={{ marginTop: 8 }}
+      >
+        Enregistrer un tour
+      </Button>
 
-      {laps.length > 0 ? (
-        <FlatList
-          data={laps}
-          keyExtractor={(_, i) => i.toString()}
-          renderItem={renderLap}
-        />
-      ) : (
-        started && (
-          <Text style={styles.emptyHint}>
-            Aucun tour enregistré pour l’instant.
-          </Text>
-        )
-      )}
+      <FlatList
+        data={laps}
+        keyExtractor={(_, i) => String(i)}
+        renderItem={({ item, index }) => {
+          const prevTs = index === 0 ? start! : laps[index - 1].ts;
+          const lapTime = fmt(item.ts - prevTs);
+          return (
+            <Text style={styles.line}>
+              Tour {index + 1} : {lapTime}
+            </Text>
+          );
+        }}
+      />
     </View>
   );
-};
+}
 
-/* -------------------------------- style -------------------------------- */
 const styles = StyleSheet.create({
-  container: { padding: 16, flex: 1 },
-  btn: { marginVertical: 12 },
-  raceTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 4 },
-  globalTime: { fontSize: 16, marginBottom: 12, color: '#0a0' },
-  warning: { color: 'red', fontWeight: 'bold', margin: 20 },
-  emptyHint: { fontStyle: 'italic', color: '#777', marginTop: 20 },
-  lapItem: { padding: 6, borderBottomWidth: 1, borderColor: '#eee' },
+  container: { padding: 16 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  h1: { fontSize: 20, fontWeight: 'bold', marginBottom: 8 },
+  h2: { fontSize: 16, marginBottom: 16 },
+  line: { paddingVertical: 4, borderBottomWidth: 1, borderColor: '#eee' },
 });
-
-export default Timing;
