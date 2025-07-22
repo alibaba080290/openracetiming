@@ -1,163 +1,80 @@
-/**
-
- */
-
-import React from 'react';
-
-import { View, Button, TextInput, Text, TouchableOpacity } from 'react-native';
+// src/components/Settings.tsx
+import React, { useState } from 'react';
+import { ScrollView, View, Button } from 'react-native';
 import { DataTable } from 'react-native-paper';
-import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import LocalStorage from '../lib/LocalStorage';
+
+import NewRaceForm from './NewRaceForm';
 import DeveloperOptions from './DeveloperOptions';
-import { useFocusEffect } from '@react-navigation/native';
 
-import moment from 'moment';
-import styles from '../style/Styles';
+/* ─── Types ────────────────────────────────────────────────────────────── */
+interface Race {
+  id: string;
+  name: string;
+  start?: Date | null;
+  laps: number;
+}
 
-const Settings = ({ navigation }) => {
-  const DEVSETTINGS = true;
-  const [availableRaces, setAvailableRaces] = React.useState(undefined);
-  const [raceData, setRaceData] = React.useState({ massStart: true });
+/* ─── Composant ────────────────────────────────────────────────────────── */
+const Settings: React.FC = () => {
+  const [showForm, setShowForm] = useState(false);
+  const [races, setRaces] = useState<Race[]>([]);
 
-  const [datePickerVisible, setDatePickerVisible] = React.useState(false);
-  const [showNewRaceForm, setShowNewRaceForm] = React.useState(false);
-  const [debug, setDebug] = React.useState('');
-  const [raceDate, setRaceDate] = React.useState('tap to set date');
-
-  const initialiseFromLocalStorage = () => {
-    console.log('getting races');
-    LocalStorage.getRaces()
-      .then((raceList) => {
-        //       setDebug(tabulateRaces(JSON.parse(raceList)));
-        // setDebug(Object.values(raceList));
-        //       let listTable = raceList ? raceList
-        //         .sort((a, b) => a.raceDate < b.raceDate)
-        //         .map((race) => {
-        //           console.log(race);
-        //         })
-        //  : [];
-        console.log(raceList);
-        setAvailableRaces(tabulateRaces(raceList));
-      })
-      .catch((e) => setDebug(JSON.stringify(e.message)));
-    console.log('ran fetch races');
+  /* Ajoute une course dans le state (remplace plus tard par un appel API) */
+  const addRace = (name: string, start: Date | null, laps: number) => {
+    setRaces((prev) => [
+      ...prev,
+      { id: Date.now().toString(), name, start, laps },
+    ]);
   };
 
-  useFocusEffect(() => {
-    if (!availableRaces && !showNewRaceForm) {
-      initialiseFromLocalStorage();
-    }
-  });
+  /* Tableau des courses existantes -------------------------------------- */
+  const raceRows = races.map((race) => (
+    <DataTable.Row key={race.id}>
+      <DataTable.Cell>{race.name}</DataTable.Cell>
+      <DataTable.Cell numeric>{race.laps}</DataTable.Cell>
+      <DataTable.Cell>
+        {race.start ? race.start.toLocaleString() : '—'}
+      </DataTable.Cell>
+    </DataTable.Row>
+  ));
 
-  const selectRace = (raceInfo) => {
-    LocalStorage.setCurrentRace(raceInfo);
-    navigation.jumpTo('Registration');
-  };
-
-  const tabulateRaces = (raceList) => {
-    return (
-      raceList &&
-      raceList.map((value) => {
-        return (
-          <TouchableOpacity
-            key={value.raceName}
-            onPress={() => selectRace(value)}
-          >
-            <DataTable.Row key={value.raceName}>
-              <DataTable.Cell key={value.raceName}>
-                {value.raceName}
-              </DataTable.Cell>
-              <DataTable.Cell key={value.raceDate}>
-                {moment(value.raceDate).format('DD/MM/YYYY')}
-              </DataTable.Cell>
-            </DataTable.Row>
-          </TouchableOpacity>
-        );
-      })
-    );
-  };
-
-  const saveRace = () => {
-    LocalStorage.saveRace(raceData)
-      .catch((e) => setDebug(JSON.stringify(e.message)))
-      .then(() => {
-        setAvailableRaces(undefined);
-        setShowNewRaceForm(false);
-      })
-      .catch((e) => setDebug(JSON.stringify(e.message)));
-  };
-
-  const updateField = (key, value) => {
-    let newObj = raceData;
-    newObj[key] = value;
-    setRaceData(newObj);
-  };
-
-  const newRaceForm = () => {
-    return (
-      <View>
-        <Text>{debug}</Text>
-        <TextInput
-          //         key={key}
-          //         editable={false}
-          placeholder="Race Name"
-          onChangeText={(changedText) => updateField('raceName', changedText)}
-        />
-
-        <TouchableOpacity onPress={() => setDatePickerVisible(true)}>
-          <Text>{raceDate}</Text>
-        </TouchableOpacity>
-        <DateTimePickerModal
-          isVisible={datePickerVisible}
-          mode="date"
-          onConfirm={(date) => {
-            //                 let thisRace = raceData;
-            //                 thisRace['raceDate'] = date.getTime();
-            //                 setRaceData(thisRace);
-            setDatePickerVisible(false);
-            updateField('raceDate', date.getTime());
-            setRaceDate(moment(date.getTime()).format('DD/MM/YYYY'));
-          }}
-          onCancel={() => setDatePickerVisible(false)}
-        />
-        {/*         <Switch */}
-        {/*           trackColor={{ false: '#767577', true: '#81b0ff' }} */}
-        {/*           thumbColor={raceData.massStart ? '#f5dd4b' : '#f4f3f4'} */}
-        {/*           ios_backgroundColor="#3e3e3e" */}
-        {/*           onValueChange={(val) => updateField('massStart', val)} */}
-        {/*           value={raceData.massStart} */}
-        {/*         /> */}
-
-        <Button
-          color={styles.button.color}
-          onPress={() => {
-            saveRace();
-          }}
-          title="add race"
-        />
-      </View>
-    );
-  };
-
+  /* ─── Rendu ──────────────────────────────────────────────────────────── */
   return (
-    <>
+    <ScrollView contentContainerStyle={{ gap: 24, padding: 16 }}>
+      {/* Tableau des courses --------------------------------------------- */}
       <View>
-        <Text>Select a race or create a new race</Text>
-        <DataTable>{availableRaces}</DataTable>
+        <DataTable>
+          <DataTable.Header>
+            <DataTable.Title>Course</DataTable.Title>
+            <DataTable.Title numeric>Tours</DataTable.Title>
+            <DataTable.Title>Départ</DataTable.Title>
+          </DataTable.Header>
+          {raceRows}
+        </DataTable>
       </View>
+
+      {/* Formulaire nouvelle course -------------------------------------- */}
       <View>
-        {showNewRaceForm ? (
-          newRaceForm()
-        ) : (
-          <Button
-            color={styles.button.color}
-            onPress={() => setShowNewRaceForm(true)}
-            title="new race"
+        {showForm ? (
+          <NewRaceForm
+            onSave={(name, start, laps) => {
+              addRace(name, start, laps);
+              setShowForm(false);
+            }}
+            onCancel={() => setShowForm(false)}
           />
+        ) : (
+          <Button title="Nouvelle course" onPress={() => setShowForm(true)} />
         )}
       </View>
-      <View>{DEVSETTINGS ? <DeveloperOptions /> : <></>}</View>
-    </>
+
+      {/* Options développeur (mode non-prod) ----------------------------- */}
+      {process.env.NODE_ENV !== 'production' && (
+        <View>
+          <DeveloperOptions />
+        </View>
+      )}
+    </ScrollView>
   );
 };
 
