@@ -1,4 +1,3 @@
-// src/components/NewRaceForm.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -6,138 +5,170 @@ import {
   TextInput,
   Button,
   StyleSheet,
+  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 
+import { Race, RaceType } from '../types';
+
 interface Props {
-  onSave: (name: string, start: Date | null, laps: number) => void;
   onCancel: () => void;
+  onSave: (race: Race) => void;
 }
 
-const NewRaceForm: React.FC<Props> = ({ onSave, onCancel }) => {
-  /* ─── États locaux ─────────────────────────────────────────────────── */
-  const [raceName, setRaceName] = useState('');
-  const [laps, setLaps] = useState('10');
-  const [startTime, setStartTime] = useState<Date | null>(null);
-  const [showPicker, setShowPicker] = useState(false);
+export default function NewRaceForm({ onCancel, onSave }: Props) {
+  // ────────────────────────────────── états
+  const [name, setName] = useState('');
+  const [type, setType] = useState<RaceType>('classic');
+  const [laps, setLaps] = useState('10'); // string pour TextInput
+  const [duration, setDuration] = useState('20'); // en minutes
+  const [start, setStart] = useState<Date | null>(null);
+  const [pickerVis, setPickerVis] = useState(false);
 
-  /* ─── Handlers ─────────────────────────────────────────────────────── */
-  const confirmDate = (date: Date) => {
-    setStartTime(date);
-    setShowPicker(false);
-  };
+  // ──────────────────────────────── helpers
+  const disabled =
+    !name.trim() ||
+    (type === 'classic' && !+laps) ||
+    (type === 'endurance' && !+duration) ||
+    !start;
 
-  const handleSave = () => {
-    onSave(raceName.trim(), startTime, Number(laps) || 0);
-  };
+  function formatDateInput(d: Date): string {
+    const pad = (n: number) => (n < 10 ? '0' + n : n);
+    return (
+      d.getFullYear() +
+      '-' +
+      pad(d.getMonth() + 1) +
+      '-' +
+      pad(d.getDate()) +
+      'T' +
+      pad(d.getHours()) +
+      ':' +
+      pad(d.getMinutes())
+    );
+  }
 
-  /* ─── Rendu ────────────────────────────────────────────────────────── */
+  function save() {
+    if (!start) {
+      return;
+    }
+    const race: Race = {
+      id: Date.now().toString(),
+      name,
+      type,
+      laps: type === 'classic' ? +laps : undefined,
+      duration: type === 'endurance' ? +duration : undefined,
+      start,
+    };
+    onSave(race);
+  }
+
+  // ──────────────────────────────── rendu
   return (
-    <View style={styles.container}>
-      {/* Nom ------------------------------------------------------------- */}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={styles.container}
+    >
       <Text style={styles.label}>Nom de la course</Text>
       <TextInput
         style={styles.input}
-        value={raceName}
-        onChangeText={setRaceName}
         placeholder="Ex. Sprint 12 min"
+        value={name}
+        onChangeText={setName}
       />
 
-      {/* Tours ----------------------------------------------------------- */}
-      <Text style={styles.label}>Nombre de tours</Text>
-      <TextInput
-        style={styles.input}
-        value={laps}
-        keyboardType="numeric"
-        onChangeText={setLaps}
-        placeholder="10"
-      />
-
-      {/* Date & heure ---------------------------------------------------- */}
-      <Text style={styles.label}>Départ</Text>
-
-      {/* Web : champ HTML5 datetime-local */}
-      {Platform.OS === 'web' && (
-        <input
-          type="datetime-local"
-          style={styles.webDateInput as any}
-          value={
-            startTime
-              ? new Date(
-                  startTime.getTime() - startTime.getTimezoneOffset() * 60000
-                )
-                  .toISOString()
-                  .slice(0, 16)
-              : ''
-          }
-          onChange={(e) =>
-            setStartTime(e.target.value ? new Date(e.target.value) : null)
-          }
+      <Text style={styles.label}>Type de course</Text>
+      <View style={styles.row}>
+        <Button
+          title="Classique"
+          color={type === 'classic' ? '#1976d2' : undefined}
+          onPress={() => setType('classic')}
         />
-      )}
+        <View style={{ width: 12 }} />
+        <Button
+          title="Endurance"
+          color={type === 'endurance' ? '#1976d2' : undefined}
+          onPress={() => setType('endurance')}
+        />
+      </View>
 
-      {/* Mobile natif : modal */}
-      {Platform.OS !== 'web' && (
+      {type === 'classic' ? (
         <>
-          <Button
-            title={
-              startTime
-                ? startTime.toLocaleString()
-                : 'Choisir la date et l’heure'
-            }
-            onPress={() => setShowPicker(true)}
+          <Text style={styles.label}>Nombre de tours</Text>
+          <TextInput
+            style={styles.input}
+            keyboardType="numeric"
+            value={laps}
+            onChangeText={setLaps}
           />
-          <DateTimePickerModal
-            isVisible={showPicker}
-            mode="datetime"
-            date={startTime || new Date()}
-            onConfirm={confirmDate}
-            onCancel={() => setShowPicker(false)}
+        </>
+      ) : (
+        <>
+          <Text style={styles.label}>Durée (minutes)</Text>
+          <TextInput
+            style={styles.input}
+            keyboardType="numeric"
+            value={duration}
+            onChangeText={setDuration}
           />
         </>
       )}
 
-      {/* Actions --------------------------------------------------------- */}
-      <View style={styles.actions}>
-        <Button title="Annuler" onPress={onCancel} color="#777" />
-        <Button
-          title="Enregistrer"
-          onPress={handleSave}
-          disabled={!raceName.trim()}
+      <Text style={styles.label}>Départ</Text>
+      {Platform.OS === 'web' ? (
+        <input
+          type="datetime-local"
+          value={start ? formatDateInput(start) : ''}
+          onChange={(e) => {
+            setStart(e.target.value ? new Date(e.target.value) : null);
+          }}
+          style={styles.htmlInput as any}
         />
+      ) : (
+        <>
+          <Button
+            title={start ? start.toLocaleString() : 'jj/mm/aaaa  --:--'}
+            onPress={() => setPickerVis(true)}
+          />
+          <DateTimePickerModal
+            isVisible={pickerVis}
+            mode="datetime"
+            onConfirm={(d) => {
+              setStart(d);
+              setPickerVis(false);
+            }}
+            onCancel={() => setPickerVis(false)}
+          />
+        </>
+      )}
+
+      <View style={styles.row}>
+        <Button title="Annuler" onPress={onCancel} color="#777" />
+        <View style={{ width: 12 }} />
+        <Button title="Enregistrer" onPress={save} disabled={disabled} />
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
-};
+}
 
-export default NewRaceForm;
-
-/* ─── Styles ──────────────────────────────────────────────────────────── */
 const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    padding: 16,
-  },
-  label: {
-    fontWeight: '600',
-    marginBottom: 4,
-  },
+  container: { padding: 16 },
+  label: { marginBottom: 4, fontWeight: '600' },
   input: {
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 6,
     padding: 8,
+    marginBottom: 12,
   },
-  webDateInput: {
-    border: '1px solid #ccc',
-    borderRadius: 6,
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  htmlInput: {
     padding: 8,
     fontSize: 16,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
+    borderRadius: 6,
+    border: '1px solid #ccc',
+    marginBottom: 12,
+    width: '100%',
+    boxSizing: 'border-box',
   },
 });

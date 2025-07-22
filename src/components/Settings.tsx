@@ -1,81 +1,52 @@
-// src/components/Settings.tsx
 import React, { useState } from 'react';
-import { ScrollView, View, Button } from 'react-native';
+import { ScrollView, Button } from 'react-native';
 import { DataTable } from 'react-native-paper';
 
 import NewRaceForm from './NewRaceForm';
-import DeveloperOptions from './DeveloperOptions';
+import { Race } from '../types';
 
-/* ─── Types ────────────────────────────────────────────────────────────── */
-interface Race {
-  id: string;
-  name: string;
-  start?: Date | null;
-  laps: number;
-}
-
-/* ─── Composant ────────────────────────────────────────────────────────── */
-const Settings: React.FC = () => {
-  const [showForm, setShowForm] = useState(false);
+export default function Settings() {
   const [races, setRaces] = useState<Race[]>([]);
+  const [adding, setAdding] = useState(false);
 
-  /* Ajoute une course dans le state (remplace plus tard par un appel API) */
-  const addRace = (name: string, start: Date | null, laps: number) => {
-    setRaces((prev) => [
-      ...prev,
-      { id: Date.now().toString(), name, start, laps },
-    ]);
-  };
+  // ─────────────────────────── helpers
+  function addRace(r: Race) {
+    setRaces((prev) => [...prev, r]);
+    setAdding(false);
+  }
 
-  /* Tableau des courses existantes -------------------------------------- */
-  const raceRows = races.map((race) => (
-    <DataTable.Row key={race.id}>
-      <DataTable.Cell>{race.name}</DataTable.Cell>
-      <DataTable.Cell numeric>{race.laps}</DataTable.Cell>
-      <DataTable.Cell>
-        {race.start ? race.start.toLocaleString() : '—'}
-      </DataTable.Cell>
-    </DataTable.Row>
-  ));
-
-  /* ─── Rendu ──────────────────────────────────────────────────────────── */
+  // ─────────────────────────── rendu
   return (
-    <ScrollView contentContainerStyle={{ gap: 24, padding: 16 }}>
-      {/* Tableau des courses --------------------------------------------- */}
-      <View>
-        <DataTable>
-          <DataTable.Header>
-            <DataTable.Title>Course</DataTable.Title>
-            <DataTable.Title numeric>Tours</DataTable.Title>
-            <DataTable.Title>Départ</DataTable.Title>
-          </DataTable.Header>
-          {raceRows}
-        </DataTable>
-      </View>
-
-      {/* Formulaire nouvelle course -------------------------------------- */}
-      <View>
-        {showForm ? (
-          <NewRaceForm
-            onSave={(name, start, laps) => {
-              addRace(name, start, laps);
-              setShowForm(false);
-            }}
-            onCancel={() => setShowForm(false)}
-          />
-        ) : (
-          <Button title="Nouvelle course" onPress={() => setShowForm(true)} />
-        )}
-      </View>
-
-      {/* Options développeur (mode non-prod) ----------------------------- */}
-      {process.env.NODE_ENV !== 'production' && (
-        <View>
-          <DeveloperOptions />
-        </View>
+    <ScrollView contentContainerStyle={{ padding: 16 }}>
+      {!adding && (
+        <Button title="Nouvelle course" onPress={() => setAdding(true)} />
       )}
+
+      {adding && (
+        <NewRaceForm onCancel={() => setAdding(false)} onSave={addRace} />
+      )}
+
+      <DataTable>
+        <DataTable.Header>
+          <DataTable.Title>Course</DataTable.Title>
+          <DataTable.Title>Type</DataTable.Title>
+          <DataTable.Title numeric>Durée/Tours</DataTable.Title>
+          <DataTable.Title>Date</DataTable.Title>
+        </DataTable.Header>
+
+        {races.map((r) => (
+          <DataTable.Row key={r.id}>
+            <DataTable.Cell>{r.name}</DataTable.Cell>
+            <DataTable.Cell>
+              {r.type === 'classic' ? 'Classique' : 'Endurance'}
+            </DataTable.Cell>
+            <DataTable.Cell numeric>
+              {r.type === 'classic' ? `${r.laps} tours` : `${r.duration} min`}
+            </DataTable.Cell>
+            <DataTable.Cell>{r.start.toLocaleString()}</DataTable.Cell>
+          </DataTable.Row>
+        ))}
+      </DataTable>
     </ScrollView>
   );
-};
-
-export default Settings;
+}

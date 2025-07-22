@@ -1,6 +1,5 @@
-// src/components/NewDriverForm.tsx
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
+import { View, TextInput, Button, StyleSheet } from 'react-native';
 
 interface Props {
   onSave: (
@@ -16,51 +15,41 @@ const NewDriverForm: React.FC<Props> = ({ onSave, onCancel }) => {
   const [name, setName] = useState('');
   const [kart, setKart] = useState('');
   const [team, setTeam] = useState('');
-  const [helmetColor, setHelmetColor] = useState('');
+  const [helmet, setHelmet] = useState('');
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>Pilote</Text>
+    <View style={styles.form}>
       <TextInput
         style={styles.input}
+        placeholder="Nom pilote"
         value={name}
         onChangeText={setName}
-        placeholder="Nom complet"
       />
-
-      <Text style={styles.label}>N° kart</Text>
       <TextInput
         style={styles.input}
+        placeholder="N° kart"
+        keyboardType="numeric"
         value={kart}
         onChangeText={setKart}
-        keyboardType="numeric"
-        placeholder="7"
       />
-
-      <Text style={styles.label}>Équipe (option)</Text>
       <TextInput
         style={styles.input}
+        placeholder="Équipe (optionnel)"
         value={team}
         onChangeText={setTeam}
-        placeholder="Fun Racers"
       />
-
-      <Text style={styles.label}>Couleur casque (option)</Text>
       <TextInput
         style={styles.input}
-        value={helmetColor}
-        onChangeText={setHelmetColor}
-        placeholder="Rouge"
+        placeholder="Couleur casque (optionnel)"
+        value={helmet}
+        onChangeText={setHelmet}
       />
 
-      <View style={styles.actions}>
-        <Button title="Annuler" onPress={onCancel} color="#777" />
+      <View style={styles.row}>
+        <Button title="Annuler" onPress={onCancel} />
         <Button
           title="Enregistrer"
-          onPress={() =>
-            onSave(name.trim(), Number(kart), team.trim(), helmetColor.trim())
-          }
-          disabled={!name.trim() || !kart}
+          onPress={() => onSave(name, Number(kart), team, helmet)}
         />
       </View>
     </View>
@@ -70,12 +59,13 @@ const NewDriverForm: React.FC<Props> = ({ onSave, onCancel }) => {
 export default NewDriverForm;
 
 const styles = StyleSheet.create({
-  container: { gap: 12, padding: 16 },
-  label: { fontWeight: '600', marginBottom: 4 },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 6, padding: 8 },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
+  form: { gap: 8, padding: 8, backgroundColor: '#fafafa', borderRadius: 6 },
+  input: {
+    borderWidth: 1,
+    borderColor: '#bbb',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    height: 40,
   },
+  row: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
 });
