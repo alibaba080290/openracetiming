@@ -1,121 +1,47 @@
-import * as React from 'react';
-import { View, Text, Button } from 'react-native';
-import { DataTable } from 'react-native-paper';
-import LocalStorage from '../lib/LocalStorage';
-import Utils from '../lib/Utils';
-import moment from 'moment';
-import EntrantRecordLine from './EntrantRecordLine';
-import * as ScopedStorage from 'react-native-scoped-storage';
-import { jsonToCSV } from 'react-native-csv';
-import styles from '../style/Styles';
-import CurrentRaceView from './CurrentRaceView';
+import React from 'react';
+import { DataTable, Text } from 'react-native-paper';
+import { useRace } from '../contexts/RaceContext';
+import { fmt } from '../utils/time';
 
-const Results = () => {
-  const [resultsData, setResultsData] = React.useState([]);
-  const [currentRace, setCurrentRace] = React.useState({});
-  const [debug, setDebug] = React.useState('');
+/* ------------- affichage des résultats pour la course sélectionnée ------------- */
+export default function Results() {
+  const { selectedRace, laps, drivers } = useRace();
 
-  React.useEffect(() => {
-    if (!currentRace || Object.keys(currentRace).length === 0) {
-      LocalStorage.getCurrentRace()
-        .then((raceDetails) => {
-          if (raceDetails) {
-            setCurrentRace(JSON.parse(raceDetails));
-          }
-        })
-        .catch((e) => setDebug(e.message));
-    }
+  if (!selectedRace) {
+    return (
+      <Text style={{ padding: 16 }}>Sélectionnez d’abord une course.</Text>
+    );
+  }
+
+  /* Regrouper les tours par pilote */
+  const rows = drivers.map((d) => {
+    const lapsForD = laps.filter((l) => l.driverId === d.id);
+    const best = Math.min(...lapsForD.map((l) => l.ms));
+    const total = lapsForD.reduce((sum, l) => sum + l.ms, 0);
+    return { ...d, count: lapsForD.length, best, total };
   });
 
-  const displayResultsFromLocalContent = () => {
-    LocalStorage.getResults(Utils.getRaceKey(currentRace))
-      .then((results) => {
-        formatResults(JSON.parse(results), (extendedEntrantRecord) => {
-          return (
-            <EntrantRecordLine
-              key={extendedEntrantRecord.nfcId}
-              record={extendedEntrantRecord}
-            />
-          );
-        }).then((newContent) => {
-          console.log('setting resultsData');
-          console.log(newContent);
-          setResultsData(newContent);
-        });
-      })
-      .catch((e) => setDebug(e.message));
-    // LocalStorage.getResults(Utils.getRaceKey(currentRace)).then( (results) =>
-    // {
-    // const resultsObject = JSON.parse(results);
-    // setDebug(JSON.stringify(Object.keys(resultsObject)));
-    //
-    // }).catch ( (e) => setDebug(e.message));
-  };
-
-  const formatResults = (results, callback) => {
-    return Promise.all(
-      Object.keys(results).map((key) => {
-        return LocalStorage.getEntrant(Utils.getRaceKey(currentRace), key)
-          .then((entrantRecordString) => {
-            let extendedEntrantRecord = JSON.parse(entrantRecordString);
-            extendedEntrantRecord.finishtime = moment(results[key]).format(
-              'HH:mm:ss.S'
-            );
-            console.log(extendedEntrantRecord);
-            return callback(extendedEntrantRecord);
-
-            //setDebug(JSON.stringify(extendedEntrantRecord));
-          })
-          .catch((e) => setDebug(e.message));
-      })
-    );
-  };
-
-  const exportResultsToFile = async () => {
-    const stringResults = await LocalStorage.getResults(
-      Utils.getRaceKey(currentRace)
-    );
-    console.log(stringResults);
-    const resultsJson = await formatResults(
-      JSON.parse(stringResults),
-      (record) => record
-    );
-    console.log(JSON.stringify(resultsJson));
-
-    const csvString = jsonToCSV(resultsJson);
-    console.log(csvString);
-    let dir = await ScopedStorage.openDocumentTree(true);
-    //   write the current list of answers to a local csv file
-    const filename = `${currentRace.raceName}_${currentRace.raceDate}.csv`;
-    // pathToWrite /storage/emulated/0/Download/data.csv
-    await ScopedStorage.writeFile(dir.uri, csvString, filename)
-      .then(() => {
-        console.log(
-          `wrote file ${filename} with content ${csvString} from json ${JSON.stringify(
-            resultsJson
-          )}`
-        );
-      })
-      .catch((error) => console.error(error));
-  };
-
   return (
-    <View>
-      <Text>{debug}</Text>
-      <CurrentRaceView raceDetails={currentRace} />
-      <DataTable>{resultsData}</DataTable>
-      <Button
-        color={styles.button.color}
-        title="reload"
-        onPress={() => displayResultsFromLocalContent()}
-      />
-      <Button
-        color={styles.button.color}
-        title="write to file"
-        onPress={() => exportResultsToFile()}
-      />
-    </View>
-  );
-};
+    <DataTable>
+      <DataTable.Header>
+        <DataTable.Title>Kart / Pilote</DataTable.Title>
+        <DataTable.Title numeric>Tours</DataTable.Title>
+        <DataTable.Title numeric>Meilleur</DataTable.Title>
+        <DataTable.Title numeric>Total</DataTable.Title>
+      </DataTable.Header>
 
-export default Results;
+      {rows.map((r) => (
+        <DataTable.Row key={r.id}>
+          <DataTable.Cell>
+            #{r.kartNumber} – {r.name}
+          </DataTable.Cell>
+          <DataTable.Cell numeric>{r.count}</DataTable.Cell>
+          <DataTable.Cell numeric>
+            {isFinite(r.best) ? fmt(r.best) : '—'}
+          </DataTable.Cell>
+          <DataTable.Cell numeric>{fmt(r.total)}</DataTable.Cell>
+        </DataTable.Row>
+      ))}
+    </DataTable>
+  );
+}

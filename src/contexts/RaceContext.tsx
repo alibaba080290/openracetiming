@@ -1,48 +1,126 @@
-import React, { createContext, useContext, useState } from 'react';
-import uuid from 'react-native-uuid';
-import { Race, Driver } from '../types';
+// src/contexts/RaceContext.tsx
+import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { Race, Driver, Lap } from '../types';
 
-interface RaceContextValue {
+interface RaceContextType {
   races: Race[];
-  selectedRace?: Race;
-  addRace: (race: Omit<Race, 'id' | 'drivers'>) => void;
-  setSelectedRace: (race: Race) => void;
-  updateDrivers: (raceId: string, drivers: Driver[]) => void;
+  setRaces: (races: Race[]) => void;
+  selectedRaceId: string | null;
+  setSelectedRaceId: (id: string | null) => void;
+  addRace: (race: Race) => void;
+  updateRace: (race: Race) => void;
+  deleteRace: (id: string) => void;
+  drivers: Driver[];
+  addDriver: (driver: Driver) => void;
+  removeDriver: (driverId: string) => void;
+  laps: Lap[];
+  addLap: (lap: Lap) => void;
+  clearLaps: () => void;
 }
 
-const RaceContext = createContext<RaceContextValue | undefined>(undefined);
+const RaceContext = createContext<RaceContextType | undefined>(undefined);
 
-export const useRace = () => {
+export function useRaceContext() {
   const ctx = useContext(RaceContext);
   if (!ctx) {
-    throw new Error('useRace must be used inside RaceProvider');
+    throw new Error('useRaceContext must be used inside RaceProvider');
   }
   return ctx;
-};
+}
 
-export const RaceProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const RaceProvider = ({ children }: { children: ReactNode }) => {
   const [races, setRaces] = useState<Race[]>([]);
-  const [selectedRace, setSelectedRace] = useState<Race>();
+  const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null);
 
-  function addRace(r: Omit<Race, 'id' | 'drivers'>) {
-    const newRace: Race = { ...r, id: uuid.v4().toString(), drivers: [] };
-    setRaces((prev) => [...prev, newRace]);
-  }
+  // pilotes liés à la course sélectionnée
+  const [driversByRace, setDriversByRace] = useState<Record<string, Driver[]>>(
+    {}
+  );
+  // tours au format { raceId, driverId, time, lapNumber }
+  const [laps, setLaps] = useState<Lap[]>([]);
 
-  function updateDrivers(raceId: string, drivers: Driver[]) {
-    setRaces((prev) =>
-      prev.map((r) => (r.id === raceId ? { ...r, drivers } : r))
-    );
-    if (selectedRace?.id === raceId) {
-      setSelectedRace({ ...selectedRace, drivers });
+  // Helpers pour la course sélectionnée
+  const drivers = selectedRaceId ? driversByRace[selectedRaceId] ?? [] : [];
+
+  const addRace = (race: Race) => {
+    setRaces((prev) => [...prev, race]);
+    setDriversByRace((prev) => ({ ...prev, [race.id]: [] }));
+  };
+
+  const updateRace = (race: Race) => {
+    setRaces((prev) => prev.map((r) => (r.id === race.id ? race : r)));
+  };
+
+  const deleteRace = (id: string) => {
+    setRaces((prev) => prev.filter((r) => r.id !== id));
+    setDriversByRace((prev) => {
+      const copy = { ...prev };
+      delete copy[id];
+      return copy;
+    });
+    setLaps((prev) => prev.filter((lap) => lap.raceId !== id));
+    if (selectedRaceId === id) {
+      setSelectedRaceId(null);
     }
-  }
+  };
+
+  const addDriver = (driver: Driver) => {
+    if (!selectedRaceId) {
+      return;
+    }
+    setDriversByRace((prev) => {
+      const current = prev[selectedRaceId] ?? [];
+      // Empêcher les doublons de numéro de kart
+      if (current.find((d) => d.kartNumber === driver.kartNumber)) {
+        return prev;
+      }
+      return { ...prev, [selectedRaceId]: [...current, driver] };
+    });
+  };
+
+  const removeDriver = (driverId: string) => {
+    if (!selectedRaceId) {
+      return;
+    }
+    setDriversByRace((prev) => {
+      const current = prev[selectedRaceId] ?? [];
+      return {
+        ...prev,
+        [selectedRaceId]: current.filter((d) => d.id !== driverId),
+      };
+    });
+    setLaps((prev) => prev.filter((lap) => lap.driverId !== driverId));
+  };
+
+  // Ajout d’un tour (laptime)
+  const addLap = (lap: Lap) => {
+    setLaps((prev) => [...prev, lap]);
+  };
+
+  const clearLaps = () => {
+    if (!selectedRaceId) {
+      return;
+    }
+    setLaps((prev) => prev.filter((lap) => lap.raceId !== selectedRaceId));
+  };
 
   return (
     <RaceContext.Provider
-      value={{ races, selectedRace, addRace, setSelectedRace, updateDrivers }}
+      value={{
+        races,
+        setRaces,
+        selectedRaceId,
+        setSelectedRaceId,
+        addRace,
+        updateRace,
+        deleteRace,
+        drivers,
+        addDriver,
+        removeDriver,
+        laps: laps.filter((lap) => lap.raceId === selectedRaceId),
+        addLap,
+        clearLaps,
+      }}
     >
       {children}
     </RaceContext.Provider>
